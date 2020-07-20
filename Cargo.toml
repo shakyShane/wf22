@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "wf2",
+    "wf2_core",
+    "wf2_derive"
+]
