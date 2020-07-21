@@ -22,7 +22,7 @@ impl Wf2 {
         let args = args.collect::<Vec<String>>();
 
         let output = match Cli::from_iter_safe(&args) {
-            Err(clap::Error {
+            Err(e @ clap::Error {
                 kind: clap::ErrorKind::HelpDisplayed,
                 ..
             }) => {
@@ -31,6 +31,9 @@ impl Wf2 {
                     .filter(|arg| &arg[..] != "--help")
                     .filter(|arg| &arg[..] != "-h")
                     .collect();
+                if help_requested {
+                    return Err(anyhow!("{}", e));
+                }
                 return Wf2::from_args(without.into_iter(), true);
             }
             Err(e) => Err(anyhow!("{}", e)),
@@ -44,7 +47,17 @@ impl Wf2 {
 
                 match (recipe.as_ref(), cli.subcommand.as_ref()) {
                     (Some(recipe), None) => {
-                        Err(anyhow!("no command given"))
+                        // dbg!("recipe + args");
+                        // dbg!(recipe);
+                        // dbg!(args);
+                        let mut args_with_bin = vec!["wf2".to_string()];
+                        if help_requested {
+                            args_with_bin.push("--help".to_string());
+                        }
+                        let next = recipe.from_cli(&args_with_bin, &ctx)?;
+                        println!("here");
+                        dbg!(next);
+                        Ok((cli, None))
                     }
                     (Some(recipe), Some(SubCommand::SubCommand(args))) => {
                         // dbg!("recipe + args");
@@ -74,10 +87,11 @@ impl Wf2 {
                         Err(anyhow!("Subcommand not recognised {:?}", cmd))
                     }
                     (None, None) => {
-                        dbg!("no recipe");
-                        dbg!("no subcommand");
-                        // no recipe, need to infer
-                        Err(anyhow!("No recipe or subcommand given {}", help_requested))
+                        let mut args = args.clone();
+                        if help_requested {
+                            args.push("--help".into());
+                        }
+                        Wf2::from_args(args.into_iter(), true)
                     }
                 }
             }
