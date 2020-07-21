@@ -1,7 +1,6 @@
 use structopt::StructOpt;
 /// Bring up the containers
 #[derive(StructOpt, Debug, Clone)]
-#[structopt(alias = "up")]
 pub struct Up {
     #[structopt(short, long)]
     attached: bool,
