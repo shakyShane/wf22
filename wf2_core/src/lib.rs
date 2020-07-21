@@ -75,7 +75,7 @@ impl Wf2 {
                         if help_requested {
                             args.push("--help".into());
                         }
-                        Wf2::from_args(args.into_iter(), true)
+                        Wf2::from_args(args.into_iter(), help_requested)
                     }
                 }
             }
