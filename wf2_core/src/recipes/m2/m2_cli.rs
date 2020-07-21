@@ -9,7 +9,6 @@ impl CliCommand for M2 {
     fn from_cli(&self, args: &Vec<String>, ctx: &Context) -> Result<(), Error> {
         let cmd = M2Cli::from_iter_safe(args)?;
         dbg!(cmd);
-        dbg!(ctx);
         Ok(())
     }
 }
