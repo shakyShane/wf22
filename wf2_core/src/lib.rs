@@ -30,25 +30,15 @@ macro_rules! append_sub {
                 $ident($ident)
             ),*
         }
-
-        impl Subcommands {
-            pub fn select(self) -> Box<dyn TaskList> {
-                match self {
-                    $(
-                        Self::$ident(inner) => Box::new(inner),
-                    )*
-                }
-            }
-        }
     };
 }
 
 use crate::cli::GlobalSubcommands;
 use crate::cli::*;
 use crate::context::Context;
+use crate::task::{Task, TaskList};
 use anyhow::*;
 use structopt::{clap, StructOpt};
-use crate::task::TaskList;
 
 pub mod cli;
 pub mod commands;
@@ -62,7 +52,10 @@ pub struct Wf2 {
 }
 
 impl Wf2 {
-    pub fn from_args<A>(args: A, help_requested: bool) -> Result<(Cli, Option<()>), anyhow::Error>
+    pub fn from_args<A>(
+        args: A,
+        help_requested: bool,
+    ) -> Result<(Cli, Option<Vec<Task>>), anyhow::Error>
     where
         A: Iterator<Item = String>,
     {
@@ -100,7 +93,7 @@ impl Wf2 {
                     next_args.push("--help".to_string());
                 }
 
-                match (&cli.recipe, &cli.subcommand) {
+                let tasks: Vec<Task> = match (&cli.recipe, &cli.subcommand) {
                     (
                         Some(recipe_kind),
                         Some(cli::Subcommands::GlobalSubcommands(GlobalSubcommands::PassThru(
@@ -111,38 +104,38 @@ impl Wf2 {
                         let mut with_bin = vec!["wf2".to_string()];
                         with_bin.extend(pass_thru_args.clone());
                         let recipe = recipe_kind.select();
-                        let next = recipe.from_cli(&with_bin, &ctx)?;
-                        dbg!(next);
+                        let tasks = recipe.from_cli(&with_bin, &ctx)?;
+                        tasks
                     }
-                    (Some(_), Some(cli::Subcommands::GlobalSubcommands(none_pass_thru))) => {
+                    (Some(_), Some(cli::Subcommands::GlobalSubcommands(cmd))) => {
                         if help_requested {
                             return Wf2::from_args(next_args.into_iter(), true);
                         }
-                        dbg!("has recipe, but command is global");
-                        dbg!(none_pass_thru);
+                        cmd.to_task_list(&ctx)
                     }
                     (None, Some(cli::Subcommands::GlobalSubcommands(cmd))) => {
                         if help_requested {
                             return Wf2::from_args(next_args.into_iter(), true);
                         }
-                        let tasks = cmd.to_task_list(&ctx);
-                        dbg!("here");
+                        cmd.to_task_list(&ctx)
                     }
                     (Some(recipe_kind), None) => {
                         let recipe = recipe_kind.select();
                         let _next = recipe.from_cli(&next_args, &ctx)?;
                         dbg!("recipe, no command");
                         dbg!(recipe);
+                        vec![]
                     }
                     (None, None) => {
                         if help_requested {
                             return Wf2::from_args(next_args.into_iter(), true);
                         }
                         dbg!("no recipe or command");
+                        vec![]
                     }
-                }
+                };
 
-                Ok((cli, None))
+                Ok((cli, Some(tasks)))
             }
         }?;
 

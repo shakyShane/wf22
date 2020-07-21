@@ -1,11 +1,11 @@
 use crate::commands::self_update::SelfUpdate;
 use crate::context::Context;
 use crate::recipes::RecipeKinds;
+use crate::task::{Task, TaskList};
 use structopt::StructOpt;
-use crate::task::{TaskList, Task};
 
 pub trait CliCommand {
-    fn from_cli(&self, args: &Vec<String>, ctx: &Context) -> Result<(), anyhow::Error>;
+    fn from_cli(&self, args: &Vec<String>, ctx: &Context) -> Result<Vec<Task>, anyhow::Error>;
 }
 
 global_cli!();

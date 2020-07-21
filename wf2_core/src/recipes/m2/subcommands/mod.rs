@@ -1,9 +1,10 @@
-use structopt::StructOpt;
-use crate::task::{TaskList, Task};
 use crate::context::Context;
+use crate::task::{Task, TaskList};
+use structopt::StructOpt;
 
-pub mod up;
+pub mod composer;
 pub mod down;
+pub mod up;
 
 #[wf2_derive::task_list]
 #[derive(StructOpt, Debug)]

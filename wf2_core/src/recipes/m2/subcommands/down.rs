@@ -1,6 +1,6 @@
-use structopt::StructOpt;
-use crate::task::{TaskList, Task};
 use crate::context::Context;
+use crate::task::{Task, TaskList};
+use structopt::StructOpt;
 
 /// Take down the containers
 #[derive(StructOpt, Debug, Clone)]
