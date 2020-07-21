@@ -1,27 +1,20 @@
-use crate::context::Context;
-use structopt::StructOpt;
-use crate::recipes::RecipeKinds;
 use crate::commands::self_update::SelfUpdate;
+use crate::context::Context;
+use crate::recipes::RecipeKinds;
+use structopt::StructOpt;
+use crate::task::{TaskList, Task};
 
 pub trait CliCommand {
     fn from_cli(&self, args: &Vec<String>, ctx: &Context) -> Result<(), anyhow::Error>;
 }
 
-#[derive(StructOpt, Debug)]
-pub struct Cli {
-    #[structopt(long, possible_values = &RecipeKinds::variants(), case_insensitive = true)]
-    pub recipe: Option<RecipeKinds>,
-    #[structopt(long)]
-    pub dryrun: bool,
-    #[structopt(long)]
-    pub config: Option<std::path::PathBuf>,
-    #[structopt(subcommand)]
-    pub subcommand: Option<SubCommand>,
-}
+global_cli!();
+append_sub!(GlobalSubcommands);
 
+#[wf2_derive::task_list]
 #[derive(Debug, StructOpt)]
-pub enum SubCommand {
+pub enum GlobalSubcommands {
     SelfUpdate(SelfUpdate),
     #[structopt(external_subcommand)]
-    SubCommand(Vec<String>),
+    PassThru(Vec<String>),
 }

@@ -15,4 +15,3 @@ impl fmt::Display for M2 {
 }
 
 impl Recipe for M2 {}
-

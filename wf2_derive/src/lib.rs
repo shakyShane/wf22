@@ -1,8 +1,35 @@
-// #[proc_macro_derive(Recipe)]
-// pub fn derive_recipe(input: TokenStream) -> TokenStream {
-//     // Parse the input tokens into a syntax tree
-//     let input = parse_macro_input!(input as DeriveInput);
-//     println!("{}", input.ident);
-//     let expanded = quote! {};
-//     TokenStream::new()
-// }
+use quote::quote;
+use proc_macro::TokenStream;
+use syn::{ItemStruct, ItemEnum};
+
+#[proc_macro_attribute]
+pub fn task_list(attr: TokenStream, item: TokenStream) -> TokenStream {
+
+    let item = syn::parse::<ItemEnum>(item).expect("parsed");
+    let ident = item.ident.clone();
+
+    let next_impls = item.variants
+        .iter()
+        .map(|v| {
+            let ident = v.ident.clone();
+            match ident.to_string().as_str() {
+                "PassThru" => quote!{ Self::#ident(inner) => unimplemented!() },
+                _ => quote!{ Self::#ident(inner) => inner.to_task_list(&ctx) }
+            }
+        });
+
+    let expanded = quote! {
+        #item
+        impl TaskList for #ident {
+            fn to_task_list(&self, ctx: &Context) -> Vec<Task> {
+                match self {
+                    #(#next_impls),*
+                }
+            }
+        }
+    };
+
+    println!("{}", &expanded.to_string());
+
+    TokenStream::from(expanded)
+}

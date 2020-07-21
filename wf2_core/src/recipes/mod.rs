@@ -1,8 +1,8 @@
 use crate::cli::CliCommand;
 use crate::recipes::m2::M2;
+use anyhow::*;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
-use anyhow::*;
 
 pub mod m2;
 pub mod wp;
@@ -15,7 +15,8 @@ pub trait Recipe: CliCommand + Debug + Display {}
 
 #[derive(Debug, Clone)]
 pub enum RecipeKinds {
-    M2, Wp
+    M2,
+    Wp,
 }
 
 impl RecipeKinds {
@@ -37,7 +38,7 @@ impl FromStr for RecipeKinds {
         match s {
             "M2" | "m2" => Ok(RecipeKinds::M2),
             "Wp" | "WP" | "wp" => Ok(RecipeKinds::Wp),
-            recipe_name => Err(anyhow!("unknown recipe: {}", recipe_name))
+            recipe_name => Err(anyhow!("unknown recipe: {}", recipe_name)),
         }
     }
 }

@@ -1,13 +1,60 @@
-use crate::cli::Cli;
-use structopt::{StructOpt, clap};
-use crate::cli::SubCommand;
+macro_rules! global_cli {
+    () => {
+        #[derive(StructOpt, Debug)]
+        pub struct Cli {
+            #[structopt(long, possible_values = &RecipeKinds::variants(), case_insensitive = true)]
+            pub recipe: Option<RecipeKinds>,
+            #[structopt(long)]
+            pub dryrun: bool,
+            #[structopt(long)]
+            pub config: Option<std::path::PathBuf>,
+            #[structopt(subcommand)]
+            pub subcommand: Option<Subcommands>,
+        }
+    };
+}
+
+macro_rules! append_sub {
+    ($ident:ident) => {
+         #[derive(StructOpt, Debug)]
+        pub enum Subcommands {
+            #[structopt(flatten)]
+            $ident($ident)
+        }
+    };
+    ($($ident:ident),*) => {
+        #[derive(StructOpt, Debug)]
+        pub enum Subcommands {
+            $(
+                #[structopt(flatten)]
+                $ident($ident)
+            ),*
+        }
+
+        impl Subcommands {
+            pub fn select(self) -> Box<dyn TaskList> {
+                match self {
+                    $(
+                        Self::$ident(inner) => Box::new(inner),
+                    )*
+                }
+            }
+        }
+    };
+}
+
+use crate::cli::GlobalSubcommands;
+use crate::cli::*;
 use crate::context::Context;
 use anyhow::*;
+use structopt::{clap, StructOpt};
+use crate::task::TaskList;
 
 pub mod cli;
 pub mod commands;
 pub mod context;
 pub mod recipes;
+pub mod task;
 
 #[derive(Debug)]
 pub struct Wf2 {
@@ -22,10 +69,14 @@ impl Wf2 {
         let args = args.collect::<Vec<String>>();
 
         let output = match Cli::from_iter_safe(&args) {
-            Err(e @ clap::Error {
-                kind: clap::ErrorKind::HelpDisplayed,
-                ..
-            }) => {
+            Err(
+                e
+                @
+                clap::Error {
+                    kind: clap::ErrorKind::HelpDisplayed,
+                    ..
+                },
+            ) => {
                 let without: Vec<String> = args
                     .into_iter()
                     .filter(|arg| &arg[..] != "--help")
@@ -42,65 +93,59 @@ impl Wf2 {
                 let mut ctx = Context::default();
                 ctx.with_recipe(cli.recipe.clone());
 
-                // selected recipe
-                let recipe = cli.recipe.as_ref().map(|kinds| kinds.select());
+                // recipe
+                let mut next_args = args.clone();
 
-                match (recipe.as_ref(), cli.subcommand.as_ref()) {
-                    (Some(recipe), None) => {
-                        // dbg!("recipe + args");
-                        // dbg!(recipe);
-                        // dbg!(args);
-                        let mut args_with_bin = vec!["wf2".to_string()];
-                        if help_requested {
-                            args_with_bin.push("--help".to_string());
-                        }
-                        let next = recipe.from_cli(&args_with_bin, &ctx)?;
-                        println!("here");
+                if help_requested {
+                    next_args.push("--help".to_string());
+                }
+
+                match (&cli.recipe, &cli.subcommand) {
+                    (
+                        Some(recipe_kind),
+                        Some(cli::Subcommands::GlobalSubcommands(GlobalSubcommands::PassThru(
+                            pass_thru_args,
+                        ))),
+                    ) => {
+                        dbg!(pass_thru_args);
+                        let mut with_bin = vec!["wf2".to_string()];
+                        with_bin.extend(pass_thru_args.clone());
+                        let recipe = recipe_kind.select();
+                        let next = recipe.from_cli(&with_bin, &ctx)?;
                         dbg!(next);
-                        Ok((cli, None))
                     }
-                    (Some(recipe), Some(SubCommand::SubCommand(args))) => {
-                        // dbg!("recipe + args");
-                        // dbg!(recipe);
-                        // dbg!(args);
-                        let mut args_with_bin = vec!["wf2".to_string()];
-                        args_with_bin.extend(args.clone());
-                        let next = recipe.from_cli(&args_with_bin, &ctx)?;
-                        println!("here");
-                        dbg!(next);
-                        Ok((cli, None))
-                    }
-                    (None, Some(_)) | (Some(_), Some(_)) | (None, None) => {
-                        let mut args = args.clone();
+                    (Some(_), Some(cli::Subcommands::GlobalSubcommands(none_pass_thru))) => {
                         if help_requested {
-                            args.push("--help".into());
+                            return Wf2::from_args(next_args.into_iter(), true);
                         }
-                        Wf2::from_args(args.into_iter(), help_requested)
+                        dbg!("has recipe, but command is global");
+                        dbg!(none_pass_thru);
+                    }
+                    (None, Some(cli::Subcommands::GlobalSubcommands(cmd))) => {
+                        if help_requested {
+                            return Wf2::from_args(next_args.into_iter(), true);
+                        }
+                        let tasks = cmd.to_task_list(&ctx);
+                        dbg!("here");
+                    }
+                    (Some(recipe_kind), None) => {
+                        let recipe = recipe_kind.select();
+                        let _next = recipe.from_cli(&next_args, &ctx)?;
+                        dbg!("recipe, no command");
+                        dbg!(recipe);
+                    }
+                    (None, None) => {
+                        if help_requested {
+                            return Wf2::from_args(next_args.into_iter(), true);
+                        }
+                        dbg!("no recipe or command");
                     }
                 }
+
+                Ok((cli, None))
             }
         }?;
 
         Ok(output)
     }
 }
-
-// fn from_struct_opt<T: StructOpt>(args: Vec<String>) -> Result<T, Error> {
-//     match T::from_iter_safe(args) {
-//         Ok(t) => Ok(t),
-//         Err(clap::Error {
-//                 kind: clap::ErrorKind::HelpDisplayed,
-//                 message,
-//                 info: _,
-//             }) => eprintln!("{}", message),
-//         Err(clap::Error {
-//                 kind: clap::ErrorKind::VersionDisplayed,
-//                 message,
-//                 info: _,
-//             }) => eprintln!("{}", message),
-//         Err(clap::Error {
-//                 message,
-//                 ..
-//             }) => eprintln!("{}", message),
-//     }
-// }
