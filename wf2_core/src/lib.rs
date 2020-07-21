@@ -70,23 +70,7 @@ impl Wf2 {
                         dbg!(next);
                         Ok((cli, None))
                     }
-                    (None, Some(SubCommand::SelfUpdate(self_update))) => {
-                        dbg!("SelfUpdate");
-                        // no recipe, need to infer
-                        Ok((cli, None))
-                    }
-                    (None, Some(cmd)) => {
-                        dbg!("SelfUpdate");
-                        // no recipe, need to infer
-                        Ok((cli, None))
-                    }
-                    (Some(_), Some(cmd)) => {
-                        dbg!("recipe given + a random subcommand");
-                        dbg!(cmd);
-                        // no recipe, need to infer
-                        Err(anyhow!("Subcommand not recognised {:?}", cmd))
-                    }
-                    (None, None) => {
+                    (None, Some(_)) | (Some(_), Some(_)) | (None, None) => {
                         let mut args = args.clone();
                         if help_requested {
                             args.push("--help".into());
