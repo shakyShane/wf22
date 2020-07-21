@@ -1,53 +1,86 @@
-use structopt::{StructOpt, clap, clap::AppSettings};
-use crate::cli::{Cli, Sub, CliCommand};
-use crate::recipes::m2::M2;
+use crate::cli::Cli;
+use structopt::StructOpt;
+use crate::cli::SubCommand;
 use crate::context::Context;
 
 pub mod cli;
-pub mod recipes;
+pub mod commands;
 pub mod context;
+pub mod recipes;
 
 #[derive(Debug)]
 pub struct Wf2 {
-    args: Vec<String>
+    args: Vec<String>,
 }
 
 impl Wf2 {
-    pub fn from_args(args: impl Iterator<Item = String>) -> Result<(), anyhow::Error> {
+    pub fn from_args<A>(args: A) -> Result<(Cli, Option<()>), anyhow::Error>
+    where
+        A: Iterator<Item = String>,
+    {
         let args = args.collect::<Vec<String>>();
-        match Cli::from_iter_safe(args) {
-            Ok(Cli { sub: None, dryrun, recipe, config }) => {
-                println!("NO COMMAND GIVEN");
-                dbg!(dryrun);
-                dbg!(recipe);
-                dbg!(config);
-            },
-            Ok(Cli { sub: Some(Sub::SubCmd(sub_args)), dryrun, recipe, config }) => {
-                let ctx = Context::default();
-                let r = M2::from_ctx(&sub_args, &ctx);
-                dbg!("r={}",r);
-            },
-            Err(clap::Error {
-                    kind: clap::ErrorKind::HelpDisplayed,
-                    message,
-                    info
-                }) => println!("{}", message),
-            Err(clap::Error {
-                    kind: clap::ErrorKind::VersionDisplayed,
-                    message,
-                    info,
-                }) => println!("{}", message),
-            Err(clap::Error {
-                    kind: clap::ErrorKind::UnrecognizedSubcommand,
-                    info,
-                    message
-                }) => eprintln!("not help or version->\n{:#?}", info),
-            e @ _ => {
-                dbg!(e);
-                unimplemented!();
+
+
+
+
+        let out: Cli = Cli::from_iter_safe(args)?;
+
+        // ctx
+        let mut ctx = Context::default();
+        ctx.with_recipe(out.recipe.clone());
+
+        // selected recipe
+        let recipe = out.recipe.as_ref().map(|kinds| kinds.select());
+
+        match (recipe.as_ref(), out.subcommand.as_ref()) {
+            (Some(recipe), None) => {
+                dbg!("recipe + NO args");
+            }
+            (Some(recipe), Some(SubCommand::SubCommand(args))) => {
+                // dbg!("recipe + args");
+                // dbg!(recipe);
+                // dbg!(args);
+                let mut args_with_bin = vec!["bin".to_string()];
+                args_with_bin.extend(args.clone());
+                let next = recipe.from_cli(&args_with_bin, &ctx)?;
+            }
+            (None, Some(cmd)) => {
+                dbg!("no reipce");
+                dbg!(cmd);
+                // no recipe, need to infer
+            }
+            (Some(_), Some(cmd)) => {
+                dbg!("recipe given + a subcommand");
+                dbg!(cmd);
+                // no recipe, need to infer
+            }
+            (None, None) => {
+                dbg!("no recipe");
+                dbg!("no subcommand");
+                // no recipe, need to infer
             }
         };
-        Ok(())
+
+        Ok((out, None))
     }
 }
 
+// fn from_struct_opt<T: StructOpt>(args: Vec<String>) -> Result<T, Error> {
+//     match T::from_iter_safe(args) {
+//         Ok(t) => Ok(t),
+//         Err(clap::Error {
+//                 kind: clap::ErrorKind::HelpDisplayed,
+//                 message,
+//                 info: _,
+//             }) => eprintln!("{}", message),
+//         Err(clap::Error {
+//                 kind: clap::ErrorKind::VersionDisplayed,
+//                 message,
+//                 info: _,
+//             }) => eprintln!("{}", message),
+//         Err(clap::Error {
+//                 message,
+//                 ..
+//             }) => eprintln!("{}", message),
+//     }
+// }

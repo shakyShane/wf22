@@ -1,4 +1,4 @@
-use structopt::{StructOpt, clap, clap::AppSettings};
+use structopt::StructOpt;
 /// Bring up the containers
 #[derive(StructOpt, Debug, Clone)]
 #[structopt(alias = "up")]
